@@ -22,3 +22,6 @@ dist/
 out/
 
 .config/
+.cache/
+.local/
+fixflow-database-diagnostics*.json

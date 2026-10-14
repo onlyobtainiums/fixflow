@@ -1,0 +1,3 @@
+export type RoleFlags={rolsuper?:boolean;rolbypassrls?:boolean;rolcreaterole?:boolean;rolcreatedb?:boolean};
+export function roleRisks(role:RoleFlags){return [role.rolsuper&&'runtime role is superuser',role.rolbypassrls&&'runtime role bypasses RLS',role.rolcreaterole&&'runtime role can create roles',role.rolcreatedb&&'runtime role can create databases'].filter(Boolean) as string[]}
+export function rlsRisks(rows:Array<{schema_name?:string;table_name?:string;enabled?:boolean;forced?:boolean;owner?:string}>,runtimeRole?:string){return rows.flatMap(r=>{const id=`${r.schema_name}.${r.table_name}`,out:string[]=[];if(!r.enabled)out.push(`${id}: RLS disabled`);if(r.owner===runtimeRole&&!r.forced)out.push(`${id}: runtime owner can bypass non-forced RLS`);return out})}
