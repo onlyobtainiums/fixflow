@@ -1,10 +1,12 @@
 import type {TransactionSql} from 'postgres';
 export type DiagnosticReport={generatedAt:string;connection:unknown[];activeRole:unknown[];roleMemberships:unknown[];schemas:unknown[];tables:unknown[];columns:unknown[];constraints:unknown[];indexes:unknown[];enums:unknown[];migrationMetadata:unknown[];rls:unknown[];policies:unknown[];tableGrants:unknown[];schemaGrants:unknown[];defaultPrivileges:unknown[]};
 /** Fixed catalogue queries only. This module accepts no SQL text or identifiers from callers. */
-export async function collectDiagnostics(tx:TransactionSql):Promise<DiagnosticReport>{
+export async function setupDiagnosticSession(tx:TransactionSql):Promise<void>{
  await tx`set local statement_timeout = '10s'`;
  await tx`set local lock_timeout = '2s'`;
  await tx`set local idle_in_transaction_session_timeout = '15s'`;
+}
+export async function collectDiagnosticCatalogues(tx:TransactionSql):Promise<DiagnosticReport>{
  const connection=await tx`select version() as server_version, current_database() as database_name, current_schema() as current_schema, current_setting('search_path') as search_path, current_timestamp as server_time, pg_backend_pid() is not null as connected, (select ssl from pg_stat_ssl where pid=pg_backend_pid()) as tls_active`;
  const activeRole=await tx`select r.rolname as role_name,r.rolsuper,r.rolinherit,r.rolcreaterole,r.rolcreatedb,r.rolcanlogin,r.rolreplication,r.rolbypassrls,r.rolconnlimit from pg_roles r where r.rolname=current_user`;
  const roleMemberships=await tx`select member.rolname as member_role, granted.rolname as granted_role, m.admin_option from pg_auth_members m join pg_roles granted on granted.oid=m.roleid join pg_roles member on member.oid=m.member where member.rolname=current_user`;
@@ -22,3 +24,5 @@ export async function collectDiagnostics(tx:TransactionSql):Promise<DiagnosticRe
  const defaultPrivileges=await tx`select pg_get_userbyid(d.defaclrole) as owner,n.nspname as schema_name,d.defaclobjtype as object_type,d.defaclacl::text as acl from pg_default_acl d left join pg_namespace n on n.oid=d.defaclnamespace order by 1,2,3`;
  return {generatedAt:new Date().toISOString(),connection:[...connection],activeRole:[...activeRole],roleMemberships:[...roleMemberships],schemas:[...schemas],tables:[...tables],columns:[...columns],constraints:[...constraints],indexes:[...indexes],enums:[...enums],migrationMetadata:[...migrationMetadata],rls:[...rls],policies:[...policies],tableGrants:[...tableGrants],schemaGrants:[...schemaGrants],defaultPrivileges:[...defaultPrivileges]};
 }
+
+export async function collectDiagnostics(tx:TransactionSql):Promise<DiagnosticReport>{await setupDiagnosticSession(tx);return collectDiagnosticCatalogues(tx)}
